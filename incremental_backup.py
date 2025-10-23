@@ -18,15 +18,40 @@ from typing import Dict, Set, Tuple
 class IncrementalBackup:
     """Gestisce il backup incrementale di una directory"""
 
-    def __init__(self, metadata_file: str = "backup_metadata.json"):
+    def __init__(self):
+        """Inizializza il sistema di backup"""
+        self.metadata_file = None
+        self.metadata = {}
+
+    def _generate_metadata_filename(self, source_path: Path) -> Path:
         """
-        Inizializza il sistema di backup
+        Genera un nome file JSON unico basato sul percorso sorgente
 
         Args:
-            metadata_file: Nome del file JSON per i metadati (salvato nella home o cartella corrente)
+            source_path: Percorso assoluto della cartella sorgente
+
+        Returns:
+            Path del file JSON nella home directory
+
+        Examples:
+            c:\\tmp\\pippo -> copia_incrementale_c^tmp^pippo.json
+            /home/user/docs -> copia_incrementale_home^user^docs.json
         """
-        self.metadata_file = Path.home() / metadata_file
-        self.metadata = self._load_metadata()
+        # Converti in percorso assoluto e stringa
+        abs_path = str(source_path.resolve())
+
+        # Rimuovi il carattere di drive su Windows (es. "C:" diventa "c")
+        # e sostituisci caratteri speciali con ^
+        sanitized = abs_path.replace(":", "").replace("\\", "^").replace("/", "^")
+
+        # Rimuovi eventuali ^ iniziali
+        sanitized = sanitized.lstrip("^")
+
+        # Crea il nome file
+        filename = f"copia_incrementale_{sanitized}.json"
+
+        # Salva nella home directory
+        return Path.home() / filename
 
     def _calculate_file_hash(self, filepath: Path) -> str:
         """
@@ -153,11 +178,18 @@ class IncrementalBackup:
         source_path = Path(source).resolve()
         dest_path = Path(destination).resolve()
 
+        # Genera il nome del file JSON specifico per questa sorgente
+        self.metadata_file = self._generate_metadata_filename(source_path)
+
+        # Carica i metadati specifici per questa sorgente
+        self.metadata = self._load_metadata()
+
         print("=" * 70)
         print("BACKUP INCREMENTALE")
         print("=" * 70)
         print(f"Origine:      {source_path}")
         print(f"Destinazione: {dest_path}")
+        print(f"File JSON:    {self.metadata_file}")
         print(f"Modalità:     {'Incrementale' if incremental else 'Completo'}")
         print("=" * 70)
 
